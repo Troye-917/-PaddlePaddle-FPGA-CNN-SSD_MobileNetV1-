@@ -82,5 +82,4 @@ paddle.static.save_inference_model(
         feed_vars=[image],
         fetch_vars=target_vars,
         executor=exe,
-        #program=float_prog
-        )
+        program=quant_infer_program)
