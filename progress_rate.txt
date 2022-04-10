@@ -1,0 +1,51 @@
+3.31：
+找到了QAT的核心类QuantizationTransformPass以及其插入自定义量化函数的函数insert_func
+func的input为：
+in_node = data(
+    var_node.name() + '_tmp_input',
+    shape=var_node.shape(),
+    dtype='float32')
+func的output与input形式一致
+
+默认情况下不进行量化处理，只进行节点插入？？
+
+
+4.1
+自定义量化节点，例如dorefa即自定义“_insert_quant_dorefa_op”的函数       ×
+WEIGHT_QUANTIZATION_TYPES和ACTIVATION_QUANTIZATION_TYPES中需加入“dorefa”        ×
+quant_type中也需加入“dorefa”        ×
+
+找不到默认情况下的quant_func,不能参照
+
+伪量化节点？？
+
+默认方法为最大绝对值量化/逐通道最大绝对值量化
+
+quantize_k函数：对已经归一化至[0,1]的数
+                进行k位量化+反量化操作
+                最终得到[0,1]的k位定点，即为伪量化数
+
+不同量化方法的量化节点有什么区别？不同方法的insert_quant_op里代码的区别看不懂
+
+4.2
+找到节点图类IrGraph
+insert_func中已经包含了节点操作的添加，out_node = func(in_node)；
+进行insert_func操作则跳过默认情况下的abs_max的节点添加
+
+4.6
+paddleslim的QAT中已经对伪量化过程的前向和反向过程进行了搭建，仅需编写量化函数
+编写权重部分量化函数
+对于in_node到numpy形式input，以及output到out_node形式的转换     √
+optimizer函数？    无法调用优化器对象？     √
+executor：初始化自定义量化函数参数      单卡or多卡训练？
+Cannot find the target node in the giving set
+
+4.8
+tmp_graph.all_var_nodes()里找不到in_node？？
+scope、executor如何设定？全局域global_scope是否可行？
+
+4.9
+with函数中已经构建了in_node、out_node节点
+in_node、out_node中均无数据，如何对应？
+
+tmp_graph没问题，问题出在将tmp_graph复制到graph的过程中
