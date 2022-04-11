@@ -49,3 +49,17 @@ with函数中已经构建了in_node、out_node节点
 in_node、out_node中均无数据，如何对应？
 
 tmp_graph没问题，问题出在将tmp_graph复制到graph的过程中
+
+4.11
+in_node的outputs该存放什么（out_node还是自建的op）？in_node的outputs有多个，而out_node就一个
+out_node的inputs用不用设置？
+猜想：in_node与out_node之间为自建op，out_node和loss之间为mean函数自建的一个op
+
+        for node in tmp_graph.all_var_nodes():
+            if node.inputs == [] and node.persistable():            针对in_node
+                in_node_params.append(node)                         将in_node加入in_node_params
+        for node in in_node.outputs:                                针对in_node的outputs（op还是out_node？）
+            self._copy_graph(graph, tmp_graph, node)                复制
+        for node in in_node_params:
+            for op_node in node.outputs:                            
+                self._copy_graph(graph, tmp_graph, op_node)

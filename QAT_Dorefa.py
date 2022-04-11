@@ -2,12 +2,13 @@ import paddle
 import paddleslim as slim
 import numpy as np
 from paddle.optimizer import Adam
+from paddle.fluid.layer_helper import LayerHelper
 from paddle.fluid.data import data
 paddle.enable_static()
 
 
 # 采用cpu训练则取False
-USE_GPU = False
+USE_GPU = True
 model = slim.models.MobileNet()
 train_program = paddle.static.Program()
 startup = paddle.static.Program()
@@ -125,9 +126,15 @@ def _weight_dorefa_quantize_func(in_node):
     #print('in_node name:', in_node.name)
     #print('var name:', var_name)
     #print('out_node name:', out_node_name)
+    out_node = data(
+        name=out_node_name,
+        shape=in_node.shape,
+        dtype='float32'
+    )
     
+
     # 量化
-    '''input = _load_variable_data(scope, var_name)
+    input = _load_variable_data(scope, var_name)
     output = np.tanh(input)
     output = output / 2 / np.max(np.abs(output)) + 0.5
     scale = 1 / float((1 << (weight_bits - 1)) - 1)
@@ -135,12 +142,8 @@ def _weight_dorefa_quantize_func(in_node):
     output = 2 * output - 1
     #print(output)
     
-    _set_variable_data(scope, exe.place, var_name, output)'''
-    out_node = data(
-        name=out_node_name,
-        shape=in_node.shape,
-        dtype='float32'
-    )
+    _set_variable_data(scope, exe.place, var_name, output)
+    
     return out_node
 
 
