@@ -72,3 +72,11 @@ out = exe.run(fluid.default_main_program(),
                   'y': feed_data
               },
               fetch_list=[z.name])
+
+4.14
+in_node out_node中数据问题解决      √
+仍然存在将tmp_graph复制到graph的过程中in_node节点无法复制的问题
+复制后节点重新连接方式
+原：var_node -> op_1 -> ...;
+    target_in_node -> op_2 -> target_out_node
+新：var_node -> op_2 -> target_out_node -> op_1 -> ...

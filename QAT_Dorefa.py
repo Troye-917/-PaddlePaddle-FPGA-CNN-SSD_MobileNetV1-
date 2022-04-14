@@ -1,9 +1,10 @@
 import paddle
 import paddleslim as slim
 import numpy as np
+import paddle.fluid as fluid
 from paddle.optimizer import Adam
-from paddle.fluid.layer_helper import LayerHelper
 from paddle.fluid.data import data
+from paddle.fluid.framework import Program, program_guard
 paddle.enable_static()
 
 
@@ -94,6 +95,7 @@ quant_config = {
     'moving_rate': 0.9
 }
 quant_exe = paddle.static.Executor(place)
+fluid_exe = fluid.Executor(fluid.CPUPlace())
 
 def _load_variable_data(scope, var_name):
     '''
@@ -104,41 +106,16 @@ def _load_variable_data(scope, var_name):
         "Cannot find " + var_name + " in scope."
     return np.array(var_node.get_tensor())
 
-def _set_variable_data(scope, place, var_name, np_value):
-    '''
-    Set the value of var node by name, if the node exits,
-    '''
-    assert isinstance(np_value, np.ndarray), \
-       'The type of value should be numpy array.'
-    var_node = scope.find_var(var_name)
-    if var_node != None:
-        tensor = var_node.get_tensor()
-        tensor.set(np_value, place)
-
 def _weight_dorefa_quantize_func(in_node):
     '''
     Use Dorefa method to quantize weight.
     '''
     weight_bits = quant_config['weight_bits']
-
     var_name = in_node.name[0: len(in_node.name) - 10]
     out_node_name = var_name + '_tmp_output'
-    #print('in_node name:', in_node.name)
-    #print('var name:', var_name)
-    #print('out_node name:', out_node_name)
-
-    helper = LayerHelper("mean", **locals())
-
-
-    '''var_node = scope.find_var(var_name)
-    var_node.outputs.append(in_node)'''
-    out_node = data(
-        name=out_node_name,
-        shape=in_node.shape,
-        dtype='float32'
-    )
-    in_node.outputs = out_node
-
+    # print('in_node name:', in_node.name)
+    # print('var name:', var_name)
+    # print('out_node name:', out_node_name)
     # 量化
     input = _load_variable_data(scope, var_name)
     output = np.tanh(input)
@@ -146,10 +123,45 @@ def _weight_dorefa_quantize_func(in_node):
     scale = 1 / float((1 << (weight_bits - 1)) - 1)
     output = np.round(output / scale) * scale
     output = 2 * output - 1
-    #print(output)
-    
-    _set_variable_data(scope, exe.place, var_name, output)
-    
+    # print(output)
+
+    out_node = data(
+        name=out_node_name,
+        shape=in_node.shape,
+        dtype='float32'
+    )
+    fluid_exe.run(fluid.default_main_program(),
+                  feed={
+                    in_node.name: input,
+                    out_node.name: output
+                  })
+
+
+    '''
+    tmp_program = Program()
+    startup_program = Program()
+    with program_guard(tmp_program, startup_program):
+        in_node_tmp = data(
+            name=in_node.name,
+            shape=in_node.shape,
+            dtype='float32'
+        )
+        out_node_tmp = data(
+            name=out_node_name,
+            shape=in_node.shape,
+            dtype='float32'
+        )
+    fluid_exe.run(startup_program)
+    out = fluid_exe.run(tmp_program,
+                  feed={
+                    in_node_tmp.name: input,
+                    out_node_tmp.name: output
+                  },
+                  fetch_list=[in_node_tmp.name])
+    print(out)
+    in_node = in_node_tmp
+    out_node = out_node_tmp
+    '''
     return out_node
 
 
