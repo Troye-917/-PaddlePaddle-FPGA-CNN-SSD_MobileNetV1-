@@ -4,7 +4,7 @@ import numpy as np
 import paddle.fluid as fluid
 from paddle.optimizer import Adam
 from paddle.fluid.data import data
-from paddle.fluid.framework import Program, program_guard
+from paddle.fluid.layer_helper import LayerHelper
 paddle.enable_static()
 
 
@@ -113,17 +113,14 @@ def _weight_dorefa_quantize_func(in_node):
     weight_bits = quant_config['weight_bits']
     var_name = in_node.name[0: len(in_node.name) - 10]
     out_node_name = var_name + '_tmp_output'
-    # print('in_node name:', in_node.name)
-    # print('var name:', var_name)
-    # print('out_node name:', out_node_name)
-    # 量化
+
+    # derofa量化
     input = _load_variable_data(scope, var_name)
-    output = np.tanh(input)
-    output = output / 2 / np.max(np.abs(output)) + 0.5
+    output_quant_mid = np.tanh(input)
+    output_quant_mid = output_quant_mid / 2 / np.max(np.abs(output_quant_mid)) + 0.5
     scale = 1 / float((1 << (weight_bits - 1)) - 1)
-    output = np.round(output / scale) * scale
-    output = 2 * output - 1
-    # print(output)
+    output_quant_mid = np.round(output_quant_mid / scale) * scale   # STE
+    output_quant = 2 * output_quant_mid - 1
 
     out_node = data(
         name=out_node_name,
@@ -133,10 +130,16 @@ def _weight_dorefa_quantize_func(in_node):
     fluid_exe.run(fluid.default_main_program(),
                   feed={
                     in_node.name: input,
-                    out_node.name: output
+                    out_node.name: output_quant
                   })
-
-
+    '''
+    helper = LayerHelper("fake_quantize_dorefa", **locals())
+    helper.append_op(
+        type="fake_quantize_dorefa",
+        inputs={"X": in_node},
+        attrs={},
+        outputs={"Out": out_node})
+    '''
     '''
     tmp_program = Program()
     startup_program = Program()
