@@ -63,3 +63,12 @@ out_node的inputs用不用设置？
         for node in in_node_params:
             for op_node in node.outputs:                            
                 self._copy_graph(graph, tmp_graph, op_node)
+
+4.12
+data出的变量可以通过seed输入数据
+out = exe.run(fluid.default_main_program(),
+              feed={
+                  'x': feed_data,
+                  'y': feed_data
+              },
+              fetch_list=[z.name])

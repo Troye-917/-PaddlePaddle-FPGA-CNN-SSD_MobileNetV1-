@@ -126,12 +126,18 @@ def _weight_dorefa_quantize_func(in_node):
     #print('in_node name:', in_node.name)
     #print('var name:', var_name)
     #print('out_node name:', out_node_name)
+
+    helper = LayerHelper("mean", **locals())
+
+
+    '''var_node = scope.find_var(var_name)
+    var_node.outputs.append(in_node)'''
     out_node = data(
         name=out_node_name,
         shape=in_node.shape,
         dtype='float32'
     )
-    
+    in_node.outputs = out_node
 
     # 量化
     input = _load_variable_data(scope, var_name)
