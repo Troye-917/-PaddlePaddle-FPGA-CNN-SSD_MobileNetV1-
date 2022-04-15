@@ -82,3 +82,8 @@ in_node out_node中数据问题解决      √
 新：var_node -> op_2 -> target_out_node -> op_1 -> ...
                                         -> op_3 -> loss_node
 自定义python算子？
+
+4.15
+自定义算子完成
+节点复制问题解决
+更新梯度的时候出现问题，同样是找不到梯度节点

@@ -123,7 +123,6 @@ def _weight_dorefa_quantize_func_backward(output, output_grad):
     '''
     return np.array(output_grad)
 
-
 def _weight_dorefa_quantize_func(in_node):
     '''
     Use Dorefa method to quantize weight.
