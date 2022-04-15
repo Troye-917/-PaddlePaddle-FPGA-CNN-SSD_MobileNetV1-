@@ -106,24 +106,6 @@ def _load_variable_data(scope, var_name):
         "Cannot find " + var_name + " in scope."
     return np.array(var_node.get_tensor())
 
-def _weight_dorefa_quantize_func_forward(input, weight_bits):
-    '''
-    Forward function of derefa method.
-    '''
-    output_mid = np.tanh(input)
-    output_mid = output_mid / 2 / np.max(np.abs(output_mid)) + 0.5
-    scale = 1 / float((1 << (weight_bits - 1)) - 1)
-    output_mid = np.round(output_mid / scale) * scale   # STE
-    output = 2 * output_mid - 1
-    return output
-
-def _weight_dorefa_quantize_func_backward(output, output_grad):
-    '''
-    Backward function of derefa method.
-    '''
-    return np.array(output_grad)
-
-
 def _weight_dorefa_quantize_func(in_node):
     '''
     Use Dorefa method to quantize weight.
@@ -132,8 +114,13 @@ def _weight_dorefa_quantize_func(in_node):
     var_name = in_node.name[0: len(in_node.name) - 10]
     out_node_name = var_name + '_tmp_output'
 
+    # derofa量化
     input = _load_variable_data(scope, var_name)
-    output = _weight_dorefa_quantize_func_forward(input, weight_bits)
+    output_quant_mid = np.tanh(input)
+    output_quant_mid = output_quant_mid / 2 / np.max(np.abs(output_quant_mid)) + 0.5
+    scale = 1 / float((1 << (weight_bits - 1)) - 1)
+    output_quant_mid = np.round(output_quant_mid / scale) * scale   # STE
+    output_quant = 2 * output_quant_mid - 1
 
     out_node = data(
         name=out_node_name,
@@ -143,15 +130,41 @@ def _weight_dorefa_quantize_func(in_node):
     fluid_exe.run(fluid.default_main_program(),
                   feed={
                     in_node.name: input,
-                    out_node.name: output
+                    out_node.name: output_quant
                   })
-    
-    paddle.static.nn.py_func(func=_weight_dorefa_quantize_func_forward,
-                             x=in_node,
-                             out=out_node,
-                             backward_func=_weight_dorefa_quantize_func_backward,
-                             skip_vars_in_backward_input=in_node)
-
+    '''
+    helper = LayerHelper("fake_quantize_dorefa", **locals())
+    helper.append_op(
+        type="fake_quantize_dorefa",
+        inputs={"X": in_node},
+        attrs={},
+        outputs={"Out": out_node})
+    '''
+    '''
+    tmp_program = Program()
+    startup_program = Program()
+    with program_guard(tmp_program, startup_program):
+        in_node_tmp = data(
+            name=in_node.name,
+            shape=in_node.shape,
+            dtype='float32'
+        )
+        out_node_tmp = data(
+            name=out_node_name,
+            shape=in_node.shape,
+            dtype='float32'
+        )
+    fluid_exe.run(startup_program)
+    out = fluid_exe.run(tmp_program,
+                  feed={
+                    in_node_tmp.name: input,
+                    out_node_tmp.name: output
+                  },
+                  fetch_list=[in_node_tmp.name])
+    print(out)
+    in_node = in_node_tmp
+    out_node = out_node_tmp
+    '''
     return out_node
 
 
