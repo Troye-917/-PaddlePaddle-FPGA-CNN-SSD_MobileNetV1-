@@ -106,10 +106,14 @@ def _load_variable_data(scope, var_name):
         "Cannot find " + var_name + " in scope."
     return np.array(var_node.get_tensor())
 
-def _weight_dorefa_quantize_func_forward(input, weight_bits):
+def create_tmp_var(program, name, dtype, shape):
+    return program.current_block().create_var(name=name, dtype=dtype, shape=shape)
+
+def _weight_dorefa_quantize_func_forward(input):
     '''
     Forward function of derefa method.
     '''
+    weight_bits = quant_config['weight_bits']
     output_mid = np.tanh(input)
     output_mid = output_mid / 2 / np.max(np.abs(output_mid)) + 0.5
     scale = 1 / float((1 << (weight_bits - 1)) - 1)
@@ -127,18 +131,16 @@ def _weight_dorefa_quantize_func(in_node):
     '''
     Use Dorefa method to quantize weight.
     '''
-    weight_bits = quant_config['weight_bits']
     var_name = in_node.name[0: len(in_node.name) - 10]
     out_node_name = var_name + '_tmp_output'
 
     input = _load_variable_data(scope, var_name)
-    output = _weight_dorefa_quantize_func_forward(input, weight_bits)
+    output = _weight_dorefa_quantize_func_forward(input)
 
-    out_node = data(
-        name=out_node_name,
-        shape=in_node.shape,
-        dtype='float32'
-    )
+    out_node = create_tmp_var(paddle.static.default_main_program(),
+                              name=out_node_name,
+                              dtype='float32',
+                              shape=in_node.shape)
     fluid_exe.run(fluid.default_main_program(),
                   feed={
                     in_node.name: input,

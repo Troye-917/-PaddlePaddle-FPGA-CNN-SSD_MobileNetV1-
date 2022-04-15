@@ -75,11 +75,11 @@ val_quant_program = slim.quant.quant_aware(val_program, exe.place, for_test=True
 train(quant_program)
 test(val_quant_program)
 
-quant_infer_program = slim.quant.convert(val_quant_program, exe.place)
+'''quant_infer_program = slim.quant.convert(val_quant_program, exe.place)
 target_vars = [quant_infer_program.global_block().var(outputs[-1])]
 paddle.static.save_inference_model(
         path_prefix='./quant_infer_model',
         feed_vars=[image],
         fetch_vars=target_vars,
         executor=exe,
-        program=quant_infer_program)
+        program=quant_infer_program)'''
