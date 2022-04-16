@@ -1,10 +1,7 @@
 import paddle
 import paddleslim as slim
 import numpy as np
-import paddle.fluid as fluid
 from paddle.optimizer import Adam
-from paddle.fluid.data import data
-from paddle.fluid.layer_helper import LayerHelper
 paddle.enable_static()
 
 
@@ -95,25 +92,17 @@ quant_config = {
     'moving_rate': 0.9
 }
 quant_exe = paddle.static.Executor(place)
-fluid_exe = fluid.Executor(fluid.CPUPlace())
-
-def _load_variable_data(scope, var_name):
-    '''
-    Load variable value from scope
-    '''
-    var_node = scope.find_var(var_name)
-    assert var_node is not None, \
-        "Cannot find " + var_name + " in scope."
-    return np.array(var_node.get_tensor())
 
 def create_tmp_var(program, name, dtype, shape):
     return program.current_block().create_var(name=name, dtype=dtype, shape=shape)
 
-def _weight_dorefa_quantize_func_forward(input):
+# 权重部分量化函数
+def _weight_dorefa_quantize_func_forward(in_node):
     '''
-    Forward function of derefa method.
+    Weight forward function of derefa method.
     '''
     weight_bits = quant_config['weight_bits']
+    input = np.array(in_node)
     output_mid = np.tanh(input)
     output_mid = output_mid / 2 / np.max(np.abs(output_mid)) + 0.5
     scale = 1 / float((1 << (weight_bits - 1)) - 1)
@@ -123,7 +112,7 @@ def _weight_dorefa_quantize_func_forward(input):
 
 def _weight_dorefa_quantize_func_backward(output, output_grad):
     '''
-    Backward function of derefa method.
+    Weight backward function of derefa method.
     '''
     return np.array(output_grad)
 
@@ -134,27 +123,54 @@ def _weight_dorefa_quantize_func(in_node):
     var_name = in_node.name[0: len(in_node.name) - 10]
     out_node_name = var_name + '_tmp_output'
 
-    input = _load_variable_data(scope, var_name)
-    output = _weight_dorefa_quantize_func_forward(input)
-
     out_node = create_tmp_var(paddle.static.default_main_program(),
                               name=out_node_name,
                               dtype='float32',
                               shape=in_node.shape)
-    fluid_exe.run(fluid.default_main_program(),
-                  feed={
-                    in_node.name: input,
-                    out_node.name: output
-                  })
     
     paddle.static.nn.py_func(func=_weight_dorefa_quantize_func_forward,
                              x=in_node,
                              out=out_node,
                              backward_func=_weight_dorefa_quantize_func_backward,
                              skip_vars_in_backward_input=in_node)
-
     return out_node
 
+# 激活部分量化函数
+def _act_dorefa_quantize_func_forward(in_node):
+    '''
+    Activation forward function of derefa method.
+    '''
+    activation_bits = quant_config['activation_bits']
+    input = paddle.clip(in_node * 0.1, 0, 1)
+    input = np.array(input)
+    scale = 1 / float((1 << (activation_bits - 1)) - 1)
+    output = np.round(input / scale) * scale   # STE
+    return output
+
+def _act_dorefa_quantize_func_backward(output, output_grad):
+    '''
+    Activation backward function of derefa method.
+    '''
+    return np.array(output_grad)
+
+def _act_dorefa_quantize_func(in_node):
+    '''
+    Use Dorefa method to quantize activation.
+    '''
+    var_name = in_node.name[0: len(in_node.name) - 10]
+    out_node_name = var_name + '_tmp_output'
+
+    out_node = create_tmp_var(paddle.static.default_main_program(),
+                              name=out_node_name,
+                              dtype='float32',
+                              shape=in_node.shape)
+    
+    paddle.static.nn.py_func(func=_act_dorefa_quantize_func_forward,
+                             x=in_node,
+                             out=out_node,
+                             backward_func=_act_dorefa_quantize_func_backward,
+                             skip_vars_in_backward_input=in_node)
+    return out_node
 
 quant_program = slim.quant.quant_aware(train_program,
                                        exe.place,
@@ -162,6 +178,7 @@ quant_program = slim.quant.quant_aware(train_program,
                                        scope,
                                        for_test=False,
                                        weight_quantize_func=_weight_dorefa_quantize_func,
+                                       act_quantize_func=_act_dorefa_quantize_func,
                                        optimizer_func=Adam,
                                        executor=quant_exe)
 val_quant_program = slim.quant.quant_aware(val_program,
@@ -170,6 +187,7 @@ val_quant_program = slim.quant.quant_aware(val_program,
                                            scope,
                                            for_test=True,
                                            weight_quantize_func=_weight_dorefa_quantize_func,
+                                           act_quantize_func=_act_dorefa_quantize_func,
                                            optimizer_func=Adam,
                                            executor=quant_exe)
 # 量化后测试，并与前测试比较精度

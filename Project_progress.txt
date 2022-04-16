@@ -116,3 +116,6 @@ train iter=900, top1=0.875, top5=1.0, loss=1.5816162824630737
 test iter=0, top1=0.96875, top5=1.0, loss=1.4891029596328735
 test iter=100, top1=0.96875, top5=0.984375, loss=1.4934725761413574
 final test result top1=0.9412059187889099, top5=0.9946914911270142
+
+4.16
+激活部分出现问题，某一节点image_tmp_input@GRAD找不到
