@@ -110,11 +110,14 @@ def _weight_dorefa_quantize_func_forward(in_node):
     output = 2 * output_mid - 1
     return output
 
-def _weight_dorefa_quantize_func_backward(output, output_grad):
+def _weight_dorefa_quantize_func_backward(input, output, output_grad):
     '''
     Weight backward function of derefa method.
     '''
-    return np.array(output_grad)
+    input = np.array(input)
+    output = np.array(output)
+    output_grad = np.array(output_grad)
+    return output / input * output_grad
 
 def _weight_dorefa_quantize_func(in_node):
     '''
@@ -131,8 +134,8 @@ def _weight_dorefa_quantize_func(in_node):
     paddle.static.nn.py_func(func=_weight_dorefa_quantize_func_forward,
                              x=in_node,
                              out=out_node,
-                             backward_func=_weight_dorefa_quantize_func_backward,
-                             skip_vars_in_backward_input=in_node)
+                             backward_func=_weight_dorefa_quantize_func_backward
+                             )
     return out_node
 
 # 激活部分量化函数
@@ -147,7 +150,7 @@ def _act_dorefa_quantize_func_forward(in_node):
     output = np.round(input / scale) * scale   # STE
     return output
 
-def _act_dorefa_quantize_func_backward(output, output_grad):
+def _act_dorefa_quantize_func_backward(output_grad):
     '''
     Activation backward function of derefa method.
     '''
@@ -169,7 +172,8 @@ def _act_dorefa_quantize_func(in_node):
                              x=in_node,
                              out=out_node,
                              backward_func=_act_dorefa_quantize_func_backward,
-                             skip_vars_in_backward_input=in_node)
+                             skip_vars_in_backward_input=[in_node, out_node]
+                             )
     return out_node
 
 quant_program = slim.quant.quant_aware(train_program,
@@ -178,7 +182,7 @@ quant_program = slim.quant.quant_aware(train_program,
                                        scope,
                                        for_test=False,
                                        weight_quantize_func=_weight_dorefa_quantize_func,
-                                       act_quantize_func=_act_dorefa_quantize_func,
+                                       #act_quantize_func=_act_dorefa_quantize_func,
                                        optimizer_func=Adam,
                                        executor=quant_exe)
 val_quant_program = slim.quant.quant_aware(val_program,
@@ -187,7 +191,7 @@ val_quant_program = slim.quant.quant_aware(val_program,
                                            scope,
                                            for_test=True,
                                            weight_quantize_func=_weight_dorefa_quantize_func,
-                                           act_quantize_func=_act_dorefa_quantize_func,
+                                           #act_quantize_func=_act_dorefa_quantize_func,
                                            optimizer_func=Adam,
                                            executor=quant_exe)
 # 量化后测试，并与前测试比较精度
