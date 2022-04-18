@@ -83,6 +83,7 @@ def test(prog):
 
 
 quant_config = {
+    #'activation_quantize_type': 'abs_max',
     'weight_bits': 8,
     'activation_bits': 8,
     'not_quant_pattern': ['skip_quant'],
