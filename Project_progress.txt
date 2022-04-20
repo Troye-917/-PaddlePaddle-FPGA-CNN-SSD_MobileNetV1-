@@ -119,3 +119,22 @@ final test result top1=0.9412059187889099, top5=0.9946914911270142
 
 4.16
 激活部分出现问题，某一节点image_tmp_input@GRAD找不到
+
+4.20
+激活部分仍然存在问题，现暂时使用channel_abs_max模式，结果：
+train iter=0, top1=0.0625, top5=0.484375, loss=2.3838868141174316
+train iter=100, top1=0.375, top5=0.703125, loss=2.0926451683044434
+train iter=200, top1=0.546875, top5=0.796875, loss=1.9246571063995361
+train iter=300, top1=0.6875, top5=0.8125, loss=1.7862603664398193
+train iter=400, top1=0.765625, top5=0.921875, loss=1.699889898300171
+train iter=500, top1=0.828125, top5=0.921875, loss=1.653904676437378
+train iter=600, top1=0.828125, top5=0.921875, loss=1.630717396736145
+train iter=700, top1=0.75, top5=0.859375, loss=1.7038254737854004
+train iter=800, top1=0.78125, top5=0.921875, loss=1.657988429069519
+train iter=900, top1=0.828125, top5=0.984375, loss=1.6320860385894775
+test iter=0, top1=0.859375, top5=0.984375, loss=1.6023591756820679
+test iter=100, top1=0.953125, top5=1.0, loss=1.508158802986145
+final test result top1=0.8529647588729858, top5=0.9900841116905212
+
+如何设置节点属性是quant_type供paddlelite识别？
+保存量化模型时出现问题，convert时出现error

@@ -29,7 +29,6 @@ exe.run(startup)
 scope = paddle.static.global_scope()
 val_program = train_program.clone(for_test=True)
 
-
 import paddle.vision.transforms as T
 transform = T.Compose([T.Transpose(), T.Normalize([127.5], [127.5])])
 # Paddle框架的paddle.vision.dataset包定义了MNIST数据的下载和读取
@@ -76,10 +75,8 @@ def test(prog):
         iter += 1
     print('final test result top1={}, top5={}'.format(np.array(res[0]).mean(), np.array(res[1]).mean()))
 
-
 # train(train_program)
 # test(val_program)
-
 
 
 quant_config = {
@@ -92,7 +89,7 @@ quant_config = {
     'window_size': 10000,
     'moving_rate': 0.9
 }
-quant_exe = paddle.static.Executor(place)
+#quant_exe = paddle.static.Executor(place)
 
 def create_tmp_var(program, name, dtype, shape):
     return program.current_block().create_var(name=name, dtype=dtype, shape=shape)
@@ -185,7 +182,7 @@ quant_program = slim.quant.quant_aware(train_program,
                                        weight_quantize_func=_weight_dorefa_quantize_func,
                                        #act_quantize_func=_act_dorefa_quantize_func,
                                        optimizer_func=Adam,
-                                       executor=quant_exe)
+                                       executor=exe)
 val_quant_program = slim.quant.quant_aware(val_program,
                                            exe.place,
                                            quant_config,
@@ -194,7 +191,17 @@ val_quant_program = slim.quant.quant_aware(val_program,
                                            weight_quantize_func=_weight_dorefa_quantize_func,
                                            #act_quantize_func=_act_dorefa_quantize_func,
                                            optimizer_func=Adam,
-                                           executor=quant_exe)
+                                           executor=exe)
 # 量化后测试，并与前测试比较精度
 train(quant_program)
 test(val_quant_program)
+
+# 产出量化模型
+quant_infer_program = slim.quant.convert(val_quant_program, exe.place)
+target_vars = [quant_infer_program.global_block().var(outputs[-1])]
+paddle.static.save_inference_model(
+        path_prefix='./quant_infer_model',
+        feed_vars=[image],
+        fetch_vars=target_vars,
+        executor=exe,
+        program=quant_infer_program)
