@@ -138,3 +138,6 @@ final test result top1=0.8529647588729858, top5=0.9900841116905212
 
 如何设置节点属性是quant_type供paddlelite识别？
 保存量化模型时出现问题，convert时出现error
+
+4.21
+自定义量化节点的算子类型是py_func，需要其他将权重预处理部分处理好

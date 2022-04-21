@@ -80,7 +80,8 @@ def test(prog):
 
 
 quant_config = {
-    #'activation_quantize_type': 'abs_max',
+    'weight_quantize_type': 'dorefa',
+    #'activation_quantize_type': 'dorefa',
     'weight_bits': 8,
     'activation_bits': 8,
     'not_quant_pattern': ['skip_quant'],
@@ -197,7 +198,7 @@ train(quant_program)
 test(val_quant_program)
 
 # 产出量化模型
-quant_infer_program = slim.quant.convert(val_quant_program, exe.place)
+quant_infer_program = slim.quant.convert(val_quant_program, exe.place, quant_config)
 target_vars = [quant_infer_program.global_block().var(outputs[-1])]
 paddle.static.save_inference_model(
         path_prefix='./quant_infer_model',
