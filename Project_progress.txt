@@ -84,7 +84,7 @@ in_node out_node中数据问题解决      √
 自定义python算子？
 
 4.15
-自定义算子完成
+自定义算子完成：py_func！！！
 节点复制问题解决
 更新梯度的时候出现问题，同样是找不到梯度节点
 跑通了
@@ -121,7 +121,7 @@ final test result top1=0.9412059187889099, top5=0.9946914911270142
 激活部分出现问题，某一节点image_tmp_input@GRAD找不到
 
 4.20
-激活部分仍然存在问题，现暂时使用channel_abs_max模式，结果：
+激活部分仍然存在问题，现暂时使用moving_average_abs_max模式，结果：
 train iter=0, top1=0.0625, top5=0.484375, loss=2.3838868141174316
 train iter=100, top1=0.375, top5=0.703125, loss=2.0926451683044434
 train iter=200, top1=0.546875, top5=0.796875, loss=1.9246571063995361
@@ -141,3 +141,27 @@ final test result top1=0.8529647588729858, top5=0.9900841116905212
 
 4.21
 自定义量化节点的算子类型是py_func，需要其他将权重预处理部分处理好
+
+4.22
+QuantizationFreezePass 中 _insert_post_dequant_op 函数出问题
+_quant_var_scale_map中没有权重量化输出..._tmp_output的名字
+
+4.25
+主要看 QuantizationFreezePass 中的 apply 函数
+_quant_var_scale_map中要录入input_arg_name的scale_v需满足其op_name（op_type）在_fake_quant_op_names中
+_fake_quant_op_list = [
+    'fake_quantize_abs_max', 'fake_quantize_range_abs_max',
+    'fake_quantize_moving_average_abs_max', 'fake_channel_wise_quantize_abs_max'
+]
+这个list中可能需要添加'fake_quantize_dorefa'
+但插入的算子类型为py_func，需要改类型？
+
+4.27
+需要自写convert函数？   ？
+var_node -> py_func -> target_out_node -> xx_op     ？
+
+OutScaleForTrainingPass
+
+5.16
+AddQuantDequantPass._supported_quantizable_op_type中添加了py_func       ？
+自写了dorefa_convert函数，没报错

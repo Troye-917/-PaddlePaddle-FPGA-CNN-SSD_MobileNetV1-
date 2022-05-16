@@ -2,6 +2,9 @@ import paddle
 import paddleslim as slim
 import numpy as np
 from paddle.optimizer import Adam
+from paddle.fluid import core
+from paddle.fluid.framework import IrGraph
+from paddle.fluid.contrib.slim.quantization import ConvertToInt8Pass
 paddle.enable_static()
 
 
@@ -170,6 +173,7 @@ def _act_dorefa_quantize_func(in_node):
     paddle.static.nn.py_func(func=_act_dorefa_quantize_func_forward,
                              x=in_node,
                              out=out_node,
+                             #backward_func=None
                              backward_func=_act_dorefa_quantize_func_backward,
                              skip_vars_in_backward_input=[in_node, out_node]
                              )
@@ -197,11 +201,20 @@ val_quant_program = slim.quant.quant_aware(val_program,
 train(quant_program)
 test(val_quant_program)
 
+# 转换函数
+def _dorefa_convert(program, place):
+
+    test_graph = IrGraph(core.Graph(program.desc), for_test=True)
+    convert_int8_pass = ConvertToInt8Pass(scope=scope, place=place)
+    convert_int8_pass.apply(test_graph)
+    program_int8 = test_graph.to_program()
+    return program_int8
+
 # 产出量化模型
-quant_infer_program = slim.quant.convert(val_quant_program, exe.place, quant_config)
+quant_infer_program = _dorefa_convert(val_quant_program, exe.place)
 target_vars = [quant_infer_program.global_block().var(outputs[-1])]
 paddle.static.save_inference_model(
-        path_prefix='./quant_infer_model',
+        path_prefix='./quant_dorefa_infer_model',
         feed_vars=[image],
         fetch_vars=target_vars,
         executor=exe,
